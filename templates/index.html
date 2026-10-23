@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1b1a2e; --muted: #6b6980; --paper: #f4f2fa; --surface: #ffffff; --line: #dedbea;
+      --accent: #b4235a; --accent-2: #1f7a8c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #ecebf5; --muted: #9c99b3; --paper: #14131f; --surface: #1c1b2b; --line: #2d2b42;
+        --accent: #ff6b9a; --accent-2: #5ec2d3;
+      }
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.55 "Bricolage Grotesque", system-ui, sans-serif; }
+    main { max-width: 1040px; margin: 0 auto; padding: 56px 24px 96px; }
+    h1 { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+    h2 { margin: 72px 0 24px; font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; }
+    h3 { margin: 0 0 12px; font-size: 1rem; font-weight: 600; }
+    p { margin: 0; }
+    .muted { color: var(--muted); }
+
+    .launch { padding-bottom: 40px; border-bottom: 1px solid var(--line); }
+    .fields { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-top: 24px; }
+    .field { display: grid; gap: 6px; font-weight: 600; }
+    .field.grow { flex: 1 1 280px; }
+    input[type="text"], input[type="number"], input[type="search"] { padding: 10px 14px; font: inherit; font-weight: 400; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+    input[type="number"] { width: 6.5rem; }
+    #start, #analyze, #bfi-submit { padding: 11px 22px; font: inherit; font-weight: 600; color: var(--paper); background: var(--accent); border: 0; border-radius: 8px; cursor: pointer; }
+    #start:disabled, #analyze:disabled, #bfi-submit:disabled { opacity: 0.55; cursor: progress; }
+    .check { display: flex; gap: 8px; align-items: center; margin-top: 16px; color: var(--muted); }
+    progress { display: block; width: 100%; height: 8px; margin-top: 20px; accent-color: var(--accent); }
+    .status { min-height: 1.5em; margin-top: 12px; color: var(--muted); }
+    .status.error { color: var(--accent); font-weight: 600; }
+    #empty { margin-top: 40px; font-size: 1.15rem; }
+    #results { margin-top: 56px; }
+
+    .handle { margin: 0; font-size: clamp(2.6rem, 8vw, 5.2rem); font-weight: 800; line-height: 1; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+    .bio { max-width: 60ch; margin-top: 24px; font-size: 1.15rem; white-space: pre-line; }
+    .counts { display: flex; flex-wrap: wrap; gap: 8px 32px; margin-top: 28px; font-size: 1.25rem; color: var(--muted); }
+    .counts strong { color: var(--ink); font-size: 1.6rem; font-weight: 800; }
+    .meta { margin-top: 12px; font-size: 0.9rem; color: var(--muted); }
+
+    .insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    .insight-grid .wide { grid-column: 1 / -1; }
+    .mix { display: flex; gap: 3px; height: 16px; margin-bottom: 10px; }
+    .mix span { border-radius: 8px; min-width: 8px; }
+    .big { font-size: 1.3rem; line-height: 1.4; }
+    .words { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .words li { display: grid; grid-template-columns: 8rem 1fr 2.5rem; align-items: center; gap: 12px; }
+    .track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+    .fill { display: block; height: 100%; background: var(--accent-2); border-radius: 5px; }
+    .count { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+    input[type="search"] { flex: 1 1 260px; }
+    #filters { display: flex; gap: 8px; }
+    #filters button { padding: 8px 16px; font: inherit; text-transform: capitalize; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+    #filters button[aria-pressed="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+    input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .post-list { list-style: none; margin: 16px 0 0; padding: 0; }
+    .post-list > li { display: grid; grid-template-columns: 4rem 1fr auto; gap: 20px; align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--line); }
+    .type { font-weight: 600; }
+    .metrics { margin-top: 4px; font-size: 0.9rem; color: var(--muted); }
+    details { margin-top: 8px; }
+    summary { width: fit-content; cursor: pointer; color: var(--accent-2); }
+    .comments { list-style: none; display: grid; gap: 6px; margin: 10px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); font-size: 0.95rem; }
+    .comments strong { margin-right: 6px; }
+    .post-list a { color: var(--accent); text-underline-offset: 3px; white-space: nowrap; }
+
+    .analysis-form { margin-top: 24px; }
+    .legend { display: flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 0.9rem; color: var(--muted); }
+    .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+    .swatch.ai, .dot.ai { background: var(--accent); }
+    .swatch.self, .dot.self { background: var(--accent-2); }
+    .traits { list-style: none; display: grid; gap: 26px; margin: 20px 0 0; padding: 0; }
+    .trait-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 1.15rem; }
+    .scale { position: relative; height: 10px; margin: 14px 0 10px; border-radius: 5px; background: var(--line); }
+    .scale::after { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 2px; background: var(--muted); opacity: 0.5; }
+    .dot { position: absolute; top: 50%; z-index: 1; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid var(--paper); border-radius: 50%; }
+    #validation { margin-top: 40px; }
+    .bfi { display: grid; gap: 18px; margin: 20px 0; padding-left: 22px; }
+    .likert { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 6px; }
+    .likert label { display: flex; align-items: center; gap: 6px; }
+    .compare { width: 100%; margin-top: 24px; border-collapse: collapse; }
+    .compare th, .compare td { padding: 10px 12px 10px 0; text-align: left; border-bottom: 1px solid var(--line); font-weight: 400; }
+    .compare th { font-weight: 600; }
+    #comparison .big { margin-top: 16px; }
+
+    /* ── Conclusory hypothesis box ── */
+    .conclusion-box {
+      margin: 28px 0 20px;
+      padding: 20px 24px;
+      border-left: 4px solid var(--accent);
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+      border-radius: 0 10px 10px 0;
+      line-height: 1.65;
+    }
+    .conclusion-label {
+      margin: 0 0 8px;
+      font-weight: 600;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--accent);
+    }
+    .conclusion-text { margin: 0; }
+
+    @media (max-width: 760px) {
+      main { padding-top: 40px; }
+      .insight-grid { grid-template-columns: 1fr; gap: 32px; }
+      .words li { grid-template-columns: 6rem 1fr 2rem; }
+      .post-list > li { grid-template-columns: 1fr; gap: 6px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <form id="scrape-form" class="launch">
+      <h1>Profile Analyzer</h1>
+      <p class="muted">Enter a public Instagram username to collect its profile data and posts.</p>
+      <div class="fields">
+        <label class="field grow">Username
+          <input id="username" type="text" required placeholder="natgeo" autocomplete="off" spellcheck="false" pattern="@?[A-Za-z0-9._]{1,30}">
+        </label>
+        <label class="field">Posts
+          <input id="posts" type="number" min="1" max="200" value="50">
+        </label>
+        <label class="field" title="Posts opened one by one to read caption, likes and comments (0 to skip)">Detailed posts
+          <input id="details" type="number" min="0" max="30" value="10">
+        </label>
+        <button id="start" type="submit">Scrape profile</button>
+      </div>
+      <label class="check"><input id="show-browser" type="checkbox" checked> Show the browser window while scraping</label>
+      <progress id="bar" hidden></progress>
+      <p id="status" class="status" role="status"></p>
+    </form>
+
+    <p id="empty" class="muted" hidden>No data yet. Scrape a profile above and the results will appear here.</p>
+
+    <div id="results" hidden>
+      <header>
+        <h2 id="handle" class="handle"></h2>
+        <p id="bio" class="bio"></p>
+        <p id="counts" class="counts"></p>
+        <p id="meta" class="meta"></p>
+      </header>
+
+      <section aria-labelledby="insights-title">
+        <h2 id="insights-title">What the posts show</h2>
+        <div class="insight-grid">
+          <div>
+            <h3>Content mix</h3>
+            <div id="mix" class="mix"></div>
+            <p id="mix-legend" class="muted"></p>
+          </div>
+          <div>
+            <h3>Descriptions</h3>
+            <p id="coverage" class="big"></p>
+          </div>
+          <div class="wide" id="engagement-block" hidden>
+            <h3>Likes and comments</h3>
+            <p id="engagement" class="big"></p>
+          </div>
+          <div class="wide">
+            <h3>Most used words in captions and descriptions</h3>
+            <ul id="words" class="words"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="bigfive-title">
+        <h2 id="bigfive-title">Personality estimate (Big Five)</h2>
+        <p class="muted">An exploratory estimate made by Gemini from the posts read in detail. It is a hypothesis, not a psychological assessment.</p>
+        <form id="analysis-form" class="analysis-form">
+          <label class="check"><input id="consent" type="checkbox" required> The owner of this profile agreed to this analysis</label>
+          <div class="fields">
+            <label class="field" title="Times Gemini is asked; the scores are averaged and their spread shows how consistent the model is">Runs
+              <input id="runs" type="number" min="1" max="5" value="3">
+            </label>
+            <button id="analyze" type="submit">Analyze with Gemini</button>
+          </div>
+          <progress id="analysis-bar" hidden></progress>
+          <p id="analysis-status" class="status" role="status"></p>
+        </form>
+
+        <div id="analysis-result" hidden>
+          <p id="analysis-summary" class="big"></p>
+          <p id="legend" class="legend"></p>
+          <ul id="traits" class="traits"></ul>
+
+          <!-- Conclusory hypothesis -->
+          <div id="conclusion-box" class="conclusion-box" hidden>
+            <p class="conclusion-label">Conclusión hipotética</p>
+            <p id="conclusion-text" class="conclusion-text"></p>
+          </div>
+
+          <p id="analysis-meta" class="meta"></p>
+          <p id="analysis-limits" class="meta"></p>
+        </div>
+
+        <details id="validation" hidden>
+          <summary>Validate with a questionnaire (BFI-10)</summary>
+          <p class="muted">Only the owner of the profile should answer. 1 means disagree strongly and 5 means agree strongly.</p>
+          <form id="bfi-form">
+            <ol id="bfi-items" class="bfi"></ol>
+            <button id="bfi-submit" type="submit">Compare with the estimate</button>
+            <p id="bfi-status" class="status" role="status"></p>
+          </form>
+          <div id="comparison" hidden></div>
+        </details>
+      </section>
+
+      <section aria-labelledby="posts-title">
+        <h2 id="posts-title">Posts</h2>
+        <div class="toolbar">
+          <input id="search" type="search" placeholder="Search descriptions" aria-label="Search descriptions">
+          <div id="filters" role="group" aria-label="Filter by type"></div>
+        </div>
+        <p id="result-count" class="muted"></p>
+        <ul id="post-list" class="post-list"></ul>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const el = (tag, props = {}, ...children) => {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...children);
+      return node;
+    };
+    const getJson = async (url) => (await fetch(url)).json();
+    const postJson = (url, body) => fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const TRAIT_LABELS = {
+      openness: "Openness",
+      conscientiousness: "Conscientiousness",
+      extraversion: "Extraversion",
+      agreeableness: "Agreeableness",
+      neuroticism: "Neuroticism",
+    };
+    const position = (score) => `${((score - 1) / 4) * 100}%`;
+    const typeColor = (type) => ({ post: "var(--accent)", reel: "var(--accent-2)" })[type] ?? "var(--muted)";
+    const state = { posts: [], type: "all", query: "" };
+
+    function setBusy(busy) {
+      $("start").disabled = busy;
+      $("bar").hidden = !busy;
+      if (busy) $("bar").removeAttribute("value");
+    }
+
+    function setStatus(message, isError = false, id = "status") {
+      $(id).textContent = message;
+      $(id).classList.toggle("error", isError);
+    }
+
+    function renderProfile(profile) {
+      $("handle").textContent = `@${profile.username}`;
+      $("bio").textContent = profile.biography || "No biography found.";
+      const counts = [["followers", profile.followers], ["following", profile.following], ["posts", profile.posts_count]];
+      $("counts").replaceChildren(...counts.filter(([, value]) => value)
+        .map(([label, value]) => el("span", {}, el("strong", { textContent: value }), ` ${label}`)));
+      $("meta").textContent = `Scraped ${new Date(profile.scraped_at).toLocaleString()}`;
+    }
+
+    function renderEngagement({ detailed, avg_likes, avg_comments, comments_read, top_url, top_likes }) {
+      $("engagement-block").hidden = !detailed;
+      if (!detailed) return;
+      const fmt = (value) => value.toLocaleString();
+      const parts = [
+        avg_likes === null ? "likes are hidden" : `${fmt(avg_likes)} likes on average`,
+        ...(avg_comments === null ? [] : [`${fmt(avg_comments)} comments on average`]),
+        `${comments_read} comments read`,
+      ];
+      $("engagement").replaceChildren(
+        `Across ${detailed} detailed posts: ${parts.join(", ")}.`,
+        ...(top_url ? [" The most liked has ", el("a", { href: top_url, target: "_blank", rel: "noopener noreferrer", textContent: `${fmt(top_likes)} likes` }), "."] : []),
+      );
+    }
+
+    function renderStats({ total, types, described, avg_description_length, top_words, engagement }) {
+      renderEngagement(engagement);
+      const entries = Object.entries(types);
+      $("mix").replaceChildren(...entries.map(([type, count]) =>
+        el("span", { style: `flex:${count};background:${typeColor(type)}` })));
+      $("mix-legend").textContent = entries.map(([type, count]) => `${count} ${type}s`).join(", ");
+      $("coverage").textContent = `${described} of ${total} posts have a description, averaging ${avg_description_length} characters.`;
+
+      const max = Math.max(1, ...top_words.map((item) => item.count));
+      $("words").replaceChildren(...top_words.map(({ word, count }) => el("li", {},
+        el("span", { textContent: word }),
+        el("span", { className: "track" }, el("span", { className: "fill", style: `width:${(count / max) * 100}%` })),
+        el("span", { className: "count", textContent: count }))));
+    }
+
+    function postBody(post) {
+      const body = el("div", {}, el("p", {
+        className: post.caption || post.description ? "" : "muted",
+        textContent: post.caption || post.description || "No description",
+      }));
+      if (!("caption" in post)) return body;
+
+      const metrics = [
+        post.likes == null ? "likes hidden" : `${post.likes.toLocaleString()} likes`,
+        post.comments_count == null ? "" : `${post.comments_count.toLocaleString()} comments`,
+        post.posted_at ? new Date(post.posted_at).toLocaleDateString() : "",
+      ];
+      body.append(el("p", { className: "metrics", textContent: metrics.filter(Boolean).join(", ") }));
+      if (post.comments.length) {
+        body.append(el("details", {},
+          el("summary", { textContent: `${post.comments.length} comments read` }),
+          el("ul", { className: "comments" }, ...post.comments.map((comment) =>
+            el("li", {}, el("strong", { textContent: comment.author }), comment.text)))));
+      }
+      return body;
+    }
+
+    function renderPosts() {
+      const query = state.query.toLowerCase();
+      const rows = state.posts.filter((post) =>
+        (state.type === "all" || post.type === state.type) &&
+        `${post.caption || ""} ${post.description}`.toLowerCase().includes(query));
+      $("result-count").textContent = `Showing ${rows.length} of ${state.posts.length} posts`;
+      $("post-list").replaceChildren(...rows.map((post) => el("li", {},
+        el("span", { className: "type", textContent: post.type, style: `color:${typeColor(post.type)}` }),
+        postBody(post),
+        el("a", { href: post.url, target: "_blank", rel: "noopener noreferrer", textContent: "Open post" }))));
+    }
+
+    function setupFilters(types) {
+      const buttons = ["all", ...types].map((type) => {
+        const button = el("button", { type: "button", textContent: type });
+        button.setAttribute("aria-pressed", type === state.type);
+        button.onclick = () => {
+          state.type = type;
+          buttons.forEach((other) => other.setAttribute("aria-pressed", other === button));
+          renderPosts();
+        };
+        return button;
+      });
+      $("filters").replaceChildren(...buttons);
+    }
+
+    /** Render bold markdown (**text**) as <strong> nodes inside a <p>. */
+    function renderMarkdown(text, container) {
+      const parts = text.split(/\*\*(.+?)\*\*/g);
+      container.replaceChildren(...parts.map((part, i) =>
+        i % 2 === 1 ? el("strong", { textContent: part }) : part));
+    }
+
+    function renderAnalysis(analysis, comparison) {
+      $("analysis-result").hidden = !analysis;
+      $("validation").hidden = !analysis;
+      if (!analysis) {
+        $("conclusion-box").hidden = true;
+        return;
+      }
+
+      $("analysis-summary").textContent = analysis.summary;
+      $("legend").replaceChildren(
+        el("span", { className: "swatch ai" }), " Gemini estimate",
+        ...(comparison ? [el("span", { className: "swatch self" }), " Self-report (BFI-10)"] : []),
+      );
+      $("traits").replaceChildren(...Object.entries(analysis.traits).map(([trait, info]) => {
+        const dots = [el("span", { className: "dot ai", style: `left:${position(info.score)}`, title: "Gemini estimate" })];
+        if (comparison) {
+          dots.push(el("span", { className: "dot self", style: `left:${position(comparison.traits[trait].self)}`, title: "Self-report" }));
+        }
+        const consistency = info.consistency ? `consistency ${info.consistency} (spread ${info.spread})` : "single run";
+        const evidence = info.evidence.flatMap((id, index) => [
+          ...(index ? [", "] : []),
+          analysis.sources[id]
+            ? el("a", { href: analysis.sources[id], target: "_blank", rel: "noopener noreferrer", textContent: id })
+            : id,
+        ]);
+        return el("li", {},
+          el("div", { className: "trait-head" },
+            el("strong", { textContent: TRAIT_LABELS[trait] }),
+            el("span", { textContent: `${info.score.toFixed(1)} of 5` })),
+          el("div", { className: "scale" }, ...dots),
+          el("p", { className: "meta", textContent: `Confidence ${info.confidence}, ${consistency}` }),
+          el("details", {},
+            el("summary", { textContent: "Why this score" }),
+            el("p", { textContent: info.rationale }),
+            el("p", { className: "meta" }, "Evidence: ", ...(evidence.length ? evidence : ["none cited"]))));
+      }));
+
+      // Conclusory hypothesis
+      const conclusionBox  = $("conclusion-box");
+      const conclusionText = $("conclusion-text");
+      if (analysis.conclusion) {
+        renderMarkdown(analysis.conclusion, conclusionText);
+        conclusionBox.hidden = false;
+      } else {
+        conclusionBox.hidden = true;
+      }
+
+      $("analysis-meta").textContent =
+        `Model ${analysis.model}, ${analysis.runs} runs, ${analysis.input.posts} posts and ` +
+        `${analysis.input.comments} comments analyzed, ${new Date(analysis.generated_at).toLocaleString()}.`;
+      $("analysis-limits").textContent = analysis.limitations;
+    }
+
+    function setupQuestionnaire(items) {
+      if ($("bfi-items").childElementCount) return;
+      $("bfi-items").replaceChildren(...items.map((text, index) => el("li", {},
+        el("p", { textContent: `I see myself as someone who ${text}.` }),
+        el("div", { className: "likert" }, ...[1, 2, 3, 4, 5].map((value) =>
+          el("label", {}, el("input", { type: "radio", name: `bfi${index}`, value: String(value), required: true }), String(value)))))));
+    }
+
+    function renderComparison(comparison) {
+      $("comparison").hidden = !comparison;
+      if (!comparison) return;
+      const signed = (value) => `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+      const rows = Object.entries(comparison.traits).map(([trait, row]) => el("tr", {},
+        el("td", { textContent: TRAIT_LABELS[trait] }),
+        el("td", { textContent: row.ai.toFixed(1) }),
+        el("td", { textContent: row.self.toFixed(1) }),
+        el("td", { textContent: signed(row.difference) })));
+      $("comparison").replaceChildren(
+        el("table", { className: "compare" },
+          el("thead", {}, el("tr", {}, ...["Trait", "Gemini", "Self-report", "Difference"].map((label) => el("th", { textContent: label })))),
+          el("tbody", {}, ...rows)),
+        el("p", { className: "big", textContent: `Average gap: ${comparison.mean_absolute_difference.toFixed(1)} points on the 1 to 5 scale.` }),
+        el("p", { className: "meta", textContent: "The BFI-10 has only two items per trait, so it is a rough reference, not a ground truth." }));
+    }
+
+    function setAnalysisBusy(busy) {
+      $("analyze").disabled = busy;
+      $("analysis-bar").hidden = !busy;
+      if (busy) $("analysis-bar").removeAttribute("value");
+    }
+
+    async function pollAnalysis() {
+      const job = await getJson("/api/analysis/status");
+      if (job.state === "running") {
+        $("analysis-bar").max = job.total || 1;
+        $("analysis-bar").value = job.progress;
+        setStatus(`Asking Gemini: run ${Math.min(job.progress + 1, job.total)} of ${job.total}`, false, "analysis-status");
+        setTimeout(pollAnalysis, 1500);
+        return;
+      }
+      setAnalysisBusy(false);
+      if (job.state === "error") return setStatus(job.error, true, "analysis-status");
+      setStatus("Analysis finished.", false, "analysis-status");
+      await loadResults();
+    }
+
+    async function loadResults() {
+      const { profile, posts, stats, analysis, comparison, bfi10 } = await getJson("/api/data");
+      $("results").hidden = !profile;
+      $("empty").hidden = Boolean(profile);
+      if (!profile) return;
+
+      Object.assign(state, { posts, type: "all", query: "" });
+      $("search").value = "";
+      renderProfile(profile);
+      renderStats(stats);
+      setupFilters(Object.keys(stats.types));
+      renderPosts();
+      renderAnalysis(analysis, comparison);
+      setupQuestionnaire(bfi10);
+      renderComparison(comparison);
+      if (!stats.engagement.detailed) {
+        setStatus("Scrape at least one post in detail to enable the analysis.", false, "analysis-status");
+      }
+    }
+
+    async function pollJob() {
+      const job = await getJson("/api/status");
+      if (job.state === "running") {
+        if (job.stage) {
+          const labels = { posts: "Collecting posts", details: "Reading post details" };
+          $("bar").max = job.total || 1;
+          $("bar").value = job.progress;
+          setStatus(`${labels[job.stage]}: ${job.progress} of ${job.total}`);
+        } else {
+          setStatus(job.message || `Opening @${job.username}…`);
+        }
+        setTimeout(pollJob, 1500);
+        return;
+      }
+      setBusy(false);
+      if (job.state === "error") return setStatus(job.error, true);
+      setStatus(`Finished scraping @${job.username}.`);
+      await loadResults();
+      $("results").scrollIntoView({ behavior: "smooth" });
+    }
+
+    $("scrape-form").onsubmit = async (event) => {
+      event.preventDefault();
+      setBusy(true);
+      setStatus("Starting…");
+      const response = await postJson("/api/scrape", {
+        username: $("username").value,
+        posts: $("posts").value,
+        details: $("details").value,
+        headless: !$("show-browser").checked,
+      });
+      if (!response.ok) {
+        setBusy(false);
+        return setStatus((await response.json()).error, true);
+      }
+      pollJob();
+    };
+
+    $("analysis-form").onsubmit = async (event) => {
+      event.preventDefault();
+      setAnalysisBusy(true);
+      setStatus("Starting…", false, "analysis-status");
+      const response = await postJson("/api/analyze", { consent: $("consent").checked, runs: $("runs").value });
+      if (!response.ok) {
+        setAnalysisBusy(false);
+        return setStatus((await response.json()).error, true, "analysis-status");
+      }
+      pollAnalysis();
+    };
+
+    $("bfi-form").onsubmit = async (event) => {
+      event.preventDefault();
+      const answers = Array.from({ length: 10 }, (_, index) =>
+        Number(document.querySelector(`input[name="bfi${index}"]:checked`).value));
+      const response = await postJson("/api/self-report", { answers });
+      if (!response.ok) return setStatus((await response.json()).error, true, "bfi-status");
+      setStatus("Saved.", false, "bfi-status");
+      await loadResults();
+    };
+
+    $("search").oninput = (event) => {
+      state.query = event.target.value;
+      renderPosts();
+    };
+
+    (async () => {
+      await loadResults();
+      if ((await getJson("/api/status")).state === "running") {
+        setBusy(true);
+        pollJob();
+      }
+      if ((await getJson("/api/analysis/status")).state === "running") {
+        setAnalysisBusy(true);
+        pollAnalysis();
+      }
+    })();
+  </script>
+</body>
+</html>

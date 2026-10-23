@@ -1,0 +1,19 @@
+# Secrets and browser session
+.env
+browser_profile/
+
+# Scraped data and debug artifacts
+data/*.json
+debug.png
+debug_comments.png
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
